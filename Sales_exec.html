@@ -518,10 +518,24 @@ async function boot(){
 
   let roles = {};
   try{
-    const rows = await new Promise((res, rej) =>
-      Papa.parse(csvUrl(TAB_ROLES), { download:true, header:true, skipEmptyLines:true,
+    /* Parsed without assuming row 1 is the header row, since some
+       copies of the sheet have an instructional sentence above the
+       real "Show / Role title / ..." header row. Whichever row
+       contains a "Show" cell is treated as the real header row. */
+    const raw = await new Promise((res, rej) =>
+      Papa.parse(csvUrl(TAB_ROLES), { download:true, skipEmptyLines:true,
         complete: r => res(r.data), error: rej }));
-    roles = parseRoles(rows);
+    const headerIdx = raw.findIndex(row =>
+      row.some(c => String(c).trim().toLowerCase() === "show"));
+    if(headerIdx > -1){
+      const headers = raw[headerIdx];
+      const rows = raw.slice(headerIdx + 1).map(r => {
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = r[i]);
+        return obj;
+      });
+      roles = parseRoles(rows);
+    }
   }catch(e){ console.warn("Sheet not reachable.", e); }
 
   const r = roles[slugify(want)];
