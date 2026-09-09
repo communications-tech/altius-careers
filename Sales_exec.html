@@ -66,10 +66,7 @@
   .nav{max-width:1180px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;gap:28px;}
   .brand-logo{width:132px;height:auto;display:block;}
   .brand{display:flex;align-items:center;gap:11px;font-family:'Sora',sans-serif;font-weight:700;font-size:21px;color:var(--navy);}
-  .brand svg{width:30px;height:35px;}
-  .brand .logo{height:30px;width:auto;}
   .brand .logo-failed{display:none;}
-  .brand .logo-failed ~ .div::before{content:"Altius ";color:var(--navy);}
   .brand .div{color:var(--line);font-weight:400;}
   .brand .sub{color:var(--muted);font-weight:600;font-size:19px;}
   .nav-cta{display:flex;align-items:center;gap:18px;margin-left:auto;}
@@ -250,17 +247,24 @@
   body{display:flex;flex-direction:column;min-height:100vh;}
   main{flex:1;}
   .job{padding:132px 0 96px;position:relative;overflow:hidden;}
-  .job h1{font-size:clamp(30px,4.2vw,48px);font-weight:700;letter-spacing:-.028em;max-width:22em;}
+  .job h1{font-size:clamp(30px,4.2vw,48px);font-weight:700;letter-spacing:-.028em;max-width:16em;}
   .job .summary{margin-top:16px;font-size:19px;color:var(--muted);max-width:640px;line-height:1.55;}
-  .facts{margin-top:40px;display:grid;gap:1px;background:var(--line);
+  /* two-column body on desktop: sticky facts rail + content */
+  .job-body{display:grid;grid-template-columns:300px minmax(0,1fr);gap:64px;
+    align-items:start;margin-top:48px;}
+  .job-rail{position:sticky;top:96px;display:flex;flex-direction:column;gap:24px;}
+  .job-main{min-width:0;}
+  .facts{display:grid;gap:0;background:#fff;
     border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;
-    grid-template-columns:repeat(auto-fit,minmax(160px,1fr));max-width:860px;}
-  .fact{background:#fff;padding:18px 20px;}
+    grid-template-columns:1fr;}
+  .fact{background:#fff;padding:16px 20px;border-top:1px solid var(--line);}
+  .fact:first-child{border-top:none;}
   .fact dt{font-family:'Sora',sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.12em;
     text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
   .fact dd{font-size:15.5px;font-weight:500;line-height:1.35;}
   .fact.pay dd{color:var(--teal);}
-  .section{margin-top:56px;max-width:660px;}
+  .section{margin-top:0;max-width:680px;}
+  .section + .section{margin-top:44px;}
   .section h2{font-size:23px;font-weight:600;margin-bottom:18px;}
   .section p{font-size:16.5px;color:var(--muted);margin-bottom:14px;}
   .section h3{font-size:18px;font-weight:600;margin:28px 0 12px;}
@@ -273,7 +277,7 @@
     border-radius:50%;background:rgba(26,166,176,.10);border:1.5px solid rgba(26,166,176,.45);
     color:var(--teal);font-family:'Sora',sans-serif;font-size:12.5px;font-weight:600;
     display:flex;align-items:center;justify-content:center;}
-  .apply{margin-top:60px;max-width:660px;background:var(--navy-deep);color:#fff;
+  .apply{margin-top:48px;background:var(--navy-deep);color:#fff;
     border-radius:var(--radius-lg);padding:40px 38px;position:relative;overflow:hidden;}
   .apply h2{font-size:23px;font-weight:600;margin-bottom:14px;}
   .apply p{font-size:16px;color:var(--muted-dark);margin-bottom:22px;}
@@ -288,20 +292,22 @@
   .gone h1{font-size:32px;font-weight:700;margin-bottom:16px;}
   .gone p{color:var(--muted);font-size:17px;}
   .gone a{color:var(--teal);font-weight:600;}
+  @media (max-width:900px){
+    .job-body{grid-template-columns:1fr;gap:0;}
+    .job-rail{position:static;margin-bottom:8px;}
+    .section:first-child{margin-top:40px;}
+  }
   @media (max-width:760px){
     .job{padding:104px 0 56px;}
     .apply{padding:30px 24px;}
-    .facts{grid-template-columns:1fr 1fr;}
     .brand-logo{width:108px;}
     .nav{padding:12px 20px;gap:16px;}
     .nav-cta .home{font-size:13.5px;}
-    .section{margin-top:40px;}
     .section h2{font-size:21px;}
     .job .summary{font-size:17px;}
   }
   @media (max-width:480px){
     .job{padding:96px 0 48px;}
-    .facts{grid-template-columns:1fr;}
     .brand-logo{width:96px;}
     .apply{padding:26px 20px;}
     .section p,.section li{font-size:15.5px;}
@@ -352,9 +358,15 @@
     <div class="wrap">
       <h1 id="j-title"></h1>
       <p class="summary" id="j-summary" hidden></p>
-      <dl class="facts" id="j-facts"></dl>
-      <div id="j-sections"></div>
-      <div class="apply" id="j-apply"></div>
+      <div class="job-body">
+        <aside class="job-rail">
+          <dl class="facts" id="j-facts"></dl>
+        </aside>
+        <div class="job-main">
+          <div id="j-sections"></div>
+          <div class="apply" id="j-apply"></div>
+        </div>
+      </div>
     </div>
   </section>
 
