@@ -516,12 +516,12 @@ function render(r){
 
   const secs = [
     ["About Altius", blocks(r.about)],
-    ["What you'll do", bullets(r.doing)],
-    ["What we're looking for", bullets(r.looking)],
-    ["Nice to have", bullets(r.nice)],
-    ["What this role offers", bullets(r.offers)],
+    ["What you'll do", blocks(r.doing)],
+    ["What we're looking for", blocks(r.looking)],
+    ["Nice to have", blocks(r.nice)],
+    ["What this role offers", blocks(r.offers)],
     ["How we use AI", blocks(r.ai)],
-    ["Why Altius", bullets(r.why)],
+    ["Why Altius", blocks(r.why)],
     ["Hiring process", r.process
       ? '<ul class="steps">' + lines(r.process).map(l => "<li>" + esc(strip(l)) + "</li>").join("") + "</ul>"
       : ""]
