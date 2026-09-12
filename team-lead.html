@@ -295,10 +295,7 @@
     font-family:inherit;transition:background .15s;white-space:nowrap;}
   .apply-copy:hover{background:rgba(255,255,255,.18);}
   .apply-copy.done{background:var(--teal-bright);color:var(--navy-deep);border-color:transparent;}
-  @media (max-width:520px){
-    .apply-label{width:100%;}
-    .apply-copy{margin-left:0;}
-  }
+  @media (max-width:520px){ .apply-label{width:100%;} .apply-copy{margin-left:0;} }
   .preview{
     position:relative;z-index:2;background:rgba(192,150,90,.13);
     border-bottom:1px solid rgba(192,150,90,.35);
@@ -468,32 +465,34 @@ const bullets = text => {
   return items.length ? "<ul>" + items.map(l => "<li>" + esc(strip(l)) + "</li>").join("") + "</ul>" : "";
 };
 
-function parseRoles(rows){
+function fieldRows(matrix){
+  /* matrix: array of rows, each row an array of cells.
+     Column 0 holds field labels; columns 1..n are roles.
+     Returns { pageSlug: {fields...} } */
+  const label = {
+    "show":"show", "role title":"title", "page name (for the link)":"page",
+    "link to send":"link", "summary":"summary", "location":"location",
+    "work model":"model", "employment type":"type", "team":"team",
+    "reports to":"reports", "about altius":"about", "what you'll do":"doing",
+    "what we're looking for":"looking", "nice to have":"nice",
+    "what this role offers":"offers", "how we use ai":"ai", "why altius":"why",
+    "hiring process":"process", "what to send us":"send",
+    "apply to (email or link)":"apply"
+  };
+  // how many role columns?
+  const width = Math.max(...matrix.map(r => r.length));
+  const roles = [];
+  for(let col = 1; col < width; col++){
+    const obj = {};
+    matrix.forEach(row => {
+      const key = label[String(row[0]||"").trim().toLowerCase()];
+      if(key) obj[key] = String(row[col]==null?"":row[col]).trim();
+    });
+    if(obj.title || obj.page) roles.push(obj);
+  }
   const out = {};
-  rows.filter(r => cell(r,"Show").toLowerCase().startsWith("y"))
-      .filter(r => cell(r,"Role title"))
-      .forEach(r => {
-        const key = cell(r,"Page name (for the link)") || slugify(cell(r,"Role title"));
-        out[slugify(key)] = {
-          title:    cell(r,"Role title"),
-          summary:  cell(r,"Summary"),
-          location: cell(r,"Location"),
-          model:    cell(r,"Work model"),
-          type:     cell(r,"Employment type"),
-          salary:   cell(r,"Salary range"),
-          team:     cell(r,"Team"),
-          reports:  cell(r,"Reports to"),
-          about:    cell(r,"About Altius"),
-          doing:    cell(r,"What you'll do"),
-          looking:  cell(r,"What we're looking for"),
-          nice:     cell(r,"Nice to have"),
-          ai:       cell(r,"How we use AI"),
-          why:      cell(r,"Why Altius"),
-          process:  cell(r,"Hiring process"),
-          send:     cell(r,"What to send us"),
-          apply:    cell(r,"Apply to (email or link)")
-        };
-      });
+  roles.filter(o => String(o.show||"").toLowerCase().startsWith("y"))
+       .forEach(o => { out[slugify(o.page || o.title)] = o; });
   return out;
 }
 
@@ -520,6 +519,7 @@ function render(r){
     ["What you'll do", bullets(r.doing)],
     ["What we're looking for", bullets(r.looking)],
     ["Nice to have", bullets(r.nice)],
+    ["What this role offers", bullets(r.offers)],
     ["How we use AI", blocks(r.ai)],
     ["Why Altius", bullets(r.why)],
     ["Hiring process", r.process
@@ -549,6 +549,7 @@ function render(r){
     "</div>";
 
   const bind = function(btn, text, base){
+    if(!btn) return;
     btn.addEventListener("click", function(){
       const done = function(){ btn.textContent = "Copied \u2713"; btn.classList.add("done");
         setTimeout(function(){ btn.textContent = base; btn.classList.remove("done"); }, 1800); };
@@ -557,10 +558,8 @@ function render(r){
       } else { fallbackCopy(text); done(); }
     });
   };
-  const bE = $("j-apply").querySelector('[data-copy="email"]');
-  const bS = $("j-apply").querySelector('[data-copy="subject"]');
-  if (bE) bind(bE, email, "Copy email");
-  if (bS) bind(bS, subject, "Copy subject");
+  bind($("j-apply").querySelector('[data-copy="email"]'), email, "Copy email");
+  bind($("j-apply").querySelector('[data-copy="subject"]'), subject, "Copy subject");
 
   $("view-job").hidden = false;
   $("view-gone").hidden = true;
@@ -572,15 +571,13 @@ const DEMO = {
   title:"Example role",
   summary:"This whole page is filled in from the spreadsheet. Replace every word of it.",
   location:"Tel Aviv", model:"Hybrid, 3 days in office", type:"Full time",
-  team:"Engineering", reports:"VP R&D",
+  salary:"Add a real range here", team:"Engineering", reports:"VP R&D",
   about:"This paragraph is the About Altius column, and it can be written differently for each role.",
   doing:"- One line per bullet point\n- Starting each line with a dash\n- As many as you need",
   looking:"- Must-have experience\n- Must-have skill",
   nice:"- Bonus experience",
-  ai:"AI is central to how we work, not a side tool. This paragraph is the How we use AI column.",
-  why:"- One reason per line\n- Written in the Why Altius column\n- Shown as a list",
-  process:"",
-  send:"Send us your CV and a few lines on why you want to be part of Altius.",
+  process:"Intro call, 30 minutes\nTake-home exercise\nMeet the team\nOffer or a clear no within a week",
+  send:"A CV and a short paragraph on why this role.",
   apply:"careers@altius.capital"
 };
 
@@ -589,7 +586,6 @@ async function boot(){
             || location.hash.replace(/^#\/?/, "")
             || ROLE;
 
-  /* No spreadsheet connected yet: show the example so the page can be seen. */
   if(!SHEET_ID){
     $("preview-bar").hidden = false;
     render(DEMO);
@@ -598,24 +594,10 @@ async function boot(){
 
   let roles = {};
   try{
-    /* Parsed without assuming row 1 is the header row, since some
-       copies of the sheet have an instructional sentence above the
-       real "Show / Role title / ..." header row. Whichever row
-       contains a "Show" cell is treated as the real header row. */
-    const raw = await new Promise((res, rej) =>
+    const matrix = await new Promise((res, rej) =>
       Papa.parse(csvUrl(TAB_ROLES), { download:true, skipEmptyLines:true,
         complete: r => res(r.data), error: rej }));
-    const headerIdx = raw.findIndex(row =>
-      row.some(c => String(c).trim().toLowerCase() === "show"));
-    if(headerIdx > -1){
-      const headers = raw[headerIdx];
-      const rows = raw.slice(headerIdx + 1).map(r => {
-        const obj = {};
-        headers.forEach((h, i) => obj[h] = r[i]);
-        return obj;
-      });
-      roles = parseRoles(rows);
-    }
+    roles = fieldRows(matrix);
   }catch(e){ console.warn("Sheet not reachable.", e); }
 
   const r = roles[slugify(want)];
