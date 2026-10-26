@@ -369,4 +369,242 @@
 
 <main>
   <section class="job" id="view-job" hidden>
- 
+    <div class="topo topo-light" aria-hidden="true"><svg viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice"><use href="#topo-lines"/></svg></div>
+    <div class="wrap">
+      <h1 id="j-title"></h1>
+      <p class="summary" id="j-summary" hidden></p>
+      <div class="job-body">
+        <aside class="job-rail">
+          <dl class="facts" id="j-facts"></dl>
+        </aside>
+        <div class="job-main">
+          <div id="j-sections"></div>
+          <div class="apply" id="j-apply"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="gone" id="view-gone" hidden>
+    <div class="wrap">
+      <h1>This role isn&rsquo;t open any more</h1>
+      <p>It may have been filled or withdrawn. <a href="https://altius.capital">altius.capital</a></p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-bottom" style="margin-top:0;padding-top:0;border-top:none">
+      <span>&copy; 2026 Altius Capital</span>
+      <a href="https://altius.capital">altius.capital</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ==============================================================
+   PASTE THE GOOGLE SHEET LINK BETWEEN THE QUOTES BELOW.
+   Copy it from the address bar with the Sheet open. Nothing needs
+   trimming. Share the Sheet as "Anyone with the link - Viewer".
+   ============================================================== */
+const SHEET = "https://docs.google.com/spreadsheets/d/1113aMb5xFYAgIIDb9zo32zaaHlvkm-VXEmtIH-wG19I/edit?usp=drive_link";
+
+const TAB_ROLES = "Roles";
+const HOME = "https://altius.capital";
+
+/* Which row of the Sheet this page shows. Must match the
+   "Page name (for the link)" cell for the role.
+   To add another job: copy this file, change this one line. */
+const ROLE = "data-analyst";
+
+function sheetId(v){
+  if(!v) return "";
+  const m = String(v).match(/\/d\/([a-zA-Z0-9-_]{20,})/);
+  return m ? m[1] : String(v).trim();
+}
+const SHEET_ID = sheetId(SHEET);
+const csvUrl = tab => "https://docs.google.com/spreadsheets/d/" + SHEET_ID +
+  "/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent(tab) +
+  "&_=" + Date.now();   // skips the browser cache on every load
+
+const $ = id => document.getElementById(id);
+function fallbackCopy(text){
+  try{
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.setAttribute("readonly","");
+    ta.style.position = "absolute"; ta.style.left = "-9999px";
+    document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+  }catch(e){}
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const slugify = t => String(t).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+const lines = v => String(v||"").split(/\r?\n|\r/).map(x=>x.trim()).filter(Boolean);
+const strip = l => l.replace(/^[-*\u2022]\s+/,"");
+
+const cell = (row, name) => {
+  const k = Object.keys(row).find(k => k.trim().toLowerCase() === name.toLowerCase());
+  return k ? String(row[k] || "").trim() : "";
+};
+
+function blocks(text){
+  let out = "", open = false;
+  lines(text).forEach(l => {
+    const b = /^[-*\u2022]\s+/.test(l);
+    if(b && !open){ out += "<ul>"; open = true; }
+    if(!b && open){ out += "</ul>"; open = false; }
+    if(b)                    out += "<li>" + esc(strip(l)) + "</li>";
+    else if(l.endsWith(":")) out += "<h3>" + esc(l.slice(0,-1)) + "</h3>";
+    else                     out += "<p>" + esc(l) + "</p>";
+  });
+  return out + (open ? "</ul>" : "");
+}
+const bullets = text => {
+  const items = lines(text);
+  return items.length ? "<ul>" + items.map(l => "<li>" + esc(strip(l)) + "</li>").join("") + "</ul>" : "";
+};
+
+function fieldRows(matrix){
+  /* matrix: array of rows, each row an array of cells.
+     Column 0 holds field labels; columns 1..n are roles.
+     Returns { pageSlug: {fields...} } */
+  const label = {
+    "show":"show", "role title":"title", "page name (for the link)":"page",
+    "link to send":"link", "summary":"summary", "location":"location",
+    "work model":"model", "employment type":"type", "team":"team",
+    "reports to":"reports", "about altius":"about", "what you'll do":"doing",
+    "what we're looking for":"looking", "nice to have":"nice",
+    "what this role offers":"offers", "how we use ai":"ai", "why altius":"why",
+    "hiring process":"process", "what to send us":"send",
+    "apply to (email or link)":"apply"
+  };
+  // how many role columns?
+  const width = Math.max(...matrix.map(r => r.length));
+  const roles = [];
+  for(let col = 1; col < width; col++){
+    const obj = {};
+    matrix.forEach(row => {
+      const key = label[String(row[0]||"").trim().toLowerCase()];
+      if(key) obj[key] = String(row[col]==null?"":row[col]).trim();
+    });
+    if(obj.title || obj.page) roles.push(obj);
+  }
+  const out = {};
+  roles.filter(o => String(o.show||"").toLowerCase().startsWith("y"))
+       .forEach(o => { out[slugify(o.page || o.title)] = o; });
+  return out;
+}
+
+function render(r){
+  document.title = r.title + " | Altius";
+  $("j-title").textContent = r.title;
+  const sum = $("j-summary");
+  sum.textContent = r.summary; sum.hidden = !r.summary;
+
+  const facts = [
+    ["Location", r.location, ""],
+    ["Work model", r.model, ""],
+    ["Type", r.type, ""],
+    ["Team", r.team, ""],
+    ["Reports to", r.reports, ""]
+  ].filter(f => f[1]);
+  const fl = $("j-facts");
+  fl.innerHTML = facts.map(f =>
+    '<div class="fact ' + f[2] + '"><dt>' + esc(f[0]) + "</dt><dd>" + esc(f[1]) + "</dd></div>").join("");
+  fl.hidden = !facts.length;
+
+  const secs = [
+    ["About Altius", blocks(r.about)],
+    ["What you'll do", blocks(r.doing)],
+    ["What we're looking for", blocks(r.looking)],
+    ["Nice to have", blocks(r.nice)],
+    ["What this role offers", blocks(r.offers)],
+    ["How we use AI", blocks(r.ai)],
+    ["Why Altius", blocks(r.why)],
+    ["Hiring process", r.process
+      ? '<ul class="steps">' + lines(r.process).map(l => "<li>" + esc(strip(l)) + "</li>").join("") + "</ul>"
+      : ""]
+  ].filter(s => s[1]);
+  $("j-sections").innerHTML = secs.map(s =>
+    '<div class="section"><h2>' + esc(s[0]) + "</h2>" + s[1] + "</div>").join("");
+
+  const email = (r.apply && r.apply.indexOf("@") > -1) ? r.apply : "careers@altius.capital";
+  const subject = "Application \u2013 " + r.title;
+  const mailto = "mailto:" + email + "?subject=" + encodeURIComponent(subject);
+  $("j-apply").innerHTML =
+    "<h2>How to apply</h2>" +
+    "<p>" + esc(r.send ? r.send :
+      "Email your CV and a few lines on why you want to be part of Altius, using the subject line below so we can track it to the right role.") +
+    "</p>" +
+    '<div class="apply-row">' +
+      '<span class="apply-label">Email</span>' +
+      '<a class="addr" href="' + esc(mailto) + '">' + esc(email) + '</a>' +
+      '<button type="button" class="apply-copy" data-copy="email">Copy email</button>' +
+    "</div>" +
+    '<div class="apply-row">' +
+      '<span class="apply-label">Subject</span>' +
+      '<span class="addr subj">' + esc(subject) + '</span>' +
+      '<button type="button" class="apply-copy" data-copy="subject">Copy subject</button>' +
+    "</div>";
+
+  const bind = function(btn, text, base){
+    if(!btn) return;
+    btn.addEventListener("click", function(){
+      const done = function(){ btn.textContent = "Copied \u2713"; btn.classList.add("done");
+        setTimeout(function(){ btn.textContent = base; btn.classList.remove("done"); }, 1800); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text); done(); });
+      } else { fallbackCopy(text); done(); }
+    });
+  };
+  bind($("j-apply").querySelector('[data-copy="email"]'), email, "Copy email");
+  bind($("j-apply").querySelector('[data-copy="subject"]'), subject, "Copy subject");
+
+  $("view-job").hidden = false;
+  $("view-gone").hidden = true;
+}
+
+/* Shown only while SHEET is empty, so the page can be looked at
+   before the spreadsheet exists. The Sheet replaces all of it. */
+const DEMO = {
+  title:"Example role",
+  summary:"This whole page is filled in from the spreadsheet. Replace every word of it.",
+  location:"Tel Aviv", model:"Hybrid, 3 days in office", type:"Full time",
+  salary:"Add a real range here", team:"Engineering", reports:"VP R&D",
+  about:"This paragraph is the About Altius column, and it can be written differently for each role.",
+  doing:"- One line per bullet point\n- Starting each line with a dash\n- As many as you need",
+  looking:"- Must-have experience\n- Must-have skill",
+  nice:"- Bonus experience",
+  process:"Intro call, 30 minutes\nTake-home exercise\nMeet the team\nOffer or a clear no within a week",
+  send:"A CV and a short paragraph on why this role.",
+  apply:"careers@altius.capital"
+};
+
+async function boot(){
+  const want = new URLSearchParams(location.search).get("job")
+            || location.hash.replace(/^#\/?/, "")
+            || ROLE;
+
+  if(!SHEET_ID){
+    $("preview-bar").hidden = false;
+    render(DEMO);
+    return;
+  }
+
+  let roles = {};
+  try{
+    const matrix = await new Promise((res, rej) =>
+      Papa.parse(csvUrl(TAB_ROLES), { download:true, skipEmptyLines:true,
+        complete: r => res(r.data), error: rej }));
+    roles = fieldRows(matrix);
+  }catch(e){ console.warn("Sheet not reachable.", e); }
+
+  const r = roles[slugify(want)];
+  if(r) render(r);
+  else { $("view-gone").hidden = false; document.title = "Role closed | Altius"; }
+}
+boot();
+</script>
+</body>
+</html>
