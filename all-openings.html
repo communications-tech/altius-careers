@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open roles – Altius Capital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script>
+/* SETTINGS. Rows are counted like in the sheet (1 = first row). */
+const SHEET_ID          = "1113aMb5xFYAgIIDb9zo32zaaHlvkm-VXEmtIH-wG19I";
+const SHEET_GID         = "145633826";   // the "Roles" tab
+const ROW_SHOW          = 2;   // "Show": only roles marked yes are listed
+const ROW_TITLE         = 3;   // "Role title"
+const ROW_LINK          = 5;   // "Link to send"
+const ROW_DEPARTMENT    = 10;  // "Team"
+const FIRST_ROLE_COLUMN = 2;   // column B (column A holds the field names)
+const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/" + SHEET_ID +
+  "/gviz/tq?tqx=out:csv&headers=0&gid=" + SHEET_GID;
+</script>
+<style>
+  :root {
+    --paper: #FBFBF8; --ink: #1C2629; --muted: #5E686B;
+    --rule: #DCDAD3; --brass: #8C6E34; --hover: #F1EFE8;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #171D1F; --ink: #E9E7E1; --muted: #9BA3A5;
+      --rule: #333B3E; --brass: #C9A866; --hover: #20282A;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font: 400 17px/1.55 "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 46rem; margin: 0 auto; padding: clamp(3rem, 9vw, 6.5rem) 1.5rem 5rem; }
+  h1 {
+    font: 400 clamp(2.6rem, 7vw, 4.2rem)/1.02 "Newsreader", Georgia, serif;
+    letter-spacing: -0.02em; margin: 0 0 1rem;
+  }
+  .lede { color: var(--muted); margin: 0 0 3rem; max-width: 34rem; }
+  .count { color: var(--brass); font-variant-numeric: tabular-nums; }
+  ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+  li { border-bottom: 1px solid var(--rule); }
+  a.role {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 1.5rem;
+    padding: 1.1rem 0.5rem; margin: 0 -0.5rem;
+    color: inherit; text-decoration: none; border-radius: 3px;
+  }
+  a.role:hover { background: var(--hover); }
+  a.role:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+  .title { font: 400 1.4rem/1.25 "Newsreader", Georgia, serif; }
+  a.role:hover .title { color: var(--brass); }
+  .dept { color: var(--muted); font-size: 0.92rem; white-space: nowrap; }
+  .status { color: var(--muted); padding: 1rem 0; }
+  .status strong { color: var(--ink); font-weight: 500; }
+  @media (max-width: 520px) {
+    a.role { flex-direction: column; gap: 0.15rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Open roles</h1>
+  <p class="lede">Every position we’re hiring for at Altius Capital. <span class="count" id="count"></span></p>
+  <div id="roles"><p class="status">Loading roles…</p></div>
+</main>
+
+<script>
+function parseCSV(text) {
+  const rows = []; let row = []; let cell = ""; let q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); rows.push(row); row = []; cell = "";
+    } else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+const cellAt = (rows, r, c) => (rows[r - 1] && rows[r - 1][c - 1] ? rows[r - 1][c - 1].trim() : "");
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+const showStatus = html =>
+  (document.getElementById("roles").innerHTML = '<p class="status">' + html + "</p>");
+
+async function load() {
+  let rows;
+  try {
+    const res = await fetch(SHEET_CSV_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error(res.status);
+    rows = parseCSV(await res.text());
+  } catch (e) {
+    showStatus("<strong>Couldn’t load the roles list.</strong> Refresh the page, or check that the sheet is shared as “Anyone with the link can view”.");
+    return;
+  }
+  const width = Math.max(...rows.map(r => r.length));
+  const roles = [];
+  for (let c = FIRST_ROLE_COLUMN; c <= width; c++) {
+    const link = cellAt(rows, ROW_LINK, c);
+    const show = cellAt(rows, ROW_SHOW, c).toLowerCase();
+    if (!link || show !== "yes") continue;
+    roles.push({
+      title: cellAt(rows, ROW_TITLE, c) || link.split("/").pop().replace(/\.html?$/i, ""),
+      dept: cellAt(rows, ROW_DEPARTMENT, c),
+      link
+    });
+  }
+  if (!roles.length) {
+    showStatus("<strong>No open roles right now.</strong> Check back soon.");
+    return;
+  }
+  roles.sort((a, b) => (a.dept || "~").localeCompare(b.dept || "~") || a.title.localeCompare(b.title));
+  const ul = el("ul");
+  roles.forEach(r => {
+    const li = el("li");
+    const a = el("a", "role");
+    a.href = r.link;
+    a.appendChild(el("span", "title", r.title));
+    if (r.dept) a.appendChild(el("span", "dept", r.dept));
+    li.appendChild(a); ul.appendChild(li);
+  });
+  const wrap = document.getElementById("roles");
+  wrap.innerHTML = ""; wrap.appendChild(ul);
+  document.getElementById("count").textContent =
+    roles.length === 1 ? "1 open role." : roles.length + " open roles.";
+}
+load();
+</script>
+</body>
+</html>
